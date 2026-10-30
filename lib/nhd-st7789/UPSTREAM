@@ -1,0 +1,21 @@
+Source: https://github.com/meshtastic/st7789
+Revision: 92bae2e4a307afb430c3b0bc3d661c55ee1565f0
+File: src/ST7789Spi.h
+License: MIT (copyright holders and permission in LICENSE)
+
+NhdST7789Spi.h adapts the upstream OLEDDisplay-compatible renderer, dirty
+rectangle updates, scanline allocation and TFTColorRegion mapping. It retains
+the ST7789Spi class name/API used by Meshtastic Screen, with explicit clock,
+window offsets and panel MADCTL constructor arguments instead of ESP pin args.
+
+Panel register values: Newhaven NHD-1.5-240240AF-CSXP product specification,
+revision 1 (2026-03-11), printed pp. 11-12 (PDF pp. 12-13).
+Local reference: parent hardware-reference/NHD-1.5-240240AF-CSXP.pdf.
+Reset low/high: 250 ms each; sleep-out wait extended from 100 to 120 ms.
+TE explicitly disabled. Initial address range follows the panel example
+(columns 0..239, rows 0..319); rendering uses the specified 240x240 window
+with explicit zero offsets, never upstream's centered 320x240 offsets.
+Orientation retains the panel's BGR bit, toggling MY/MX for the BaseUI flip.
+No power/backlight GPIO handling; display-off/on only blanks/unblanks output.
+Buffers are allocated before dirty-state accounting, so allocation failure
+does not discard an update. A hardware reset forces the next full refresh.

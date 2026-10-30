@@ -67,7 +67,29 @@ extern "C" {
 #define PIN_SERIAL2_RX (0 + 6) // P0.06
 #define PIN_SERIAL2_TX (0 + 8) // P0.08
 
+#ifdef WIO_ST7789_LCD_BENCH
+#define SPI_INTERFACES_COUNT 2
+#define PIN_SPI1_MISO (0 + 22)
+#define PIN_SPI1_MOSI (0 + 23)
+#define PIN_SPI1_SCK (0 + 21)
+#define PIN_SPI1_NSS (0 + 20)
+
+#define USE_ST7789
+#define HAS_SPI_TFT 1
+#define TFT_WIDTH 240
+#define TFT_HEIGHT 240
+#define ST7789_RESET (0 + 17)
+#define ST7789_RS (0 + 19) // J6.12 WRX is D/C in four-wire SPI.
+#define ST7789_NSS PIN_SPI1_NSS
+#define ST7789_TE (0 + 14)
+#define WIO_LCD_SPI_HZ 4000000
+#define WIO_LCD_X_OFFSET 0
+#define WIO_LCD_Y_OFFSET 0
+#define WIO_LCD_MADCTL 0xC8
+// VDD and backlight are always powered; do not define VTFT_CTRL or VTFT_LEDA.
+#else
 #define SPI_INTERFACES_COUNT 1
+#endif
 
 #define PIN_SPI_MISO (32 + 15) // P1.15 47
 #define PIN_SPI_MOSI (32 + 14) // P1.14 46

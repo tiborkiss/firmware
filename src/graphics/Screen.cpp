@@ -557,7 +557,11 @@ Screen::Screen(ScanI2C::DeviceAddress address, meshtastic_Config_DisplayConfig_O
                              (address.port == ScanI2C::I2CPort::WIRE1) ? HW_I2C::I2C_TWO : HW_I2C::I2C_ONE);
     isI2cScreen = true;
 #elif defined(USE_ST7789)
-#ifdef ESP_PLATFORM
+#ifdef WIO_ST7789_LCD_BENCH
+    pinMode(ST7789_TE, INPUT); // Panel output; no pull-up or interrupt.
+    dispdev = new ST7789Spi(&SPI1, ST7789_RESET, ST7789_RS, ST7789_NSS, GEOMETRY_RAWMODE, TFT_WIDTH, TFT_HEIGHT, WIO_LCD_SPI_HZ,
+                            WIO_LCD_X_OFFSET, WIO_LCD_Y_OFFSET, WIO_LCD_MADCTL);
+#elif defined(ESP_PLATFORM)
     dispdev = new ST7789Spi(&SPI1, ST7789_RESET, ST7789_RS, ST7789_NSS, GEOMETRY_RAWMODE, TFT_WIDTH, TFT_HEIGHT, ST7789_SDA,
                             ST7789_MISO, ST7789_SCK);
 #else
@@ -777,7 +781,7 @@ void Screen::handleSetOn(bool on, FrameCallback einkScreensaver)
 #ifdef SCREEN_12V_ENABLE
             digitalWrite(SCREEN_12V_ENABLE, LOW);
 #endif
-#ifdef USE_ST7789
+#if defined(USE_ST7789) && !defined(WIO_ST7789_LCD_BENCH)
             SPI1.end();
             // Keep TFT control pins in deterministic states while timed-off.
             // Floating/default pin states can corrupt panel edge rows on wake.

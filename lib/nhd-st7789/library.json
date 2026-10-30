@@ -1,0 +1,12 @@
+{
+  "name": "NHD ST7789",
+  "version": "0.1.0",
+  "description": "Bench-only Newhaven NHD-1.5-240240AF-CSXP adaptation of meshtastic/st7789",
+  "license": "MIT",
+  "frameworks": "arduino",
+  "platforms": "nordicnrf52",
+  "build": {
+    "includeDir": "src",
+    "srcDir": "src"
+  }
+}

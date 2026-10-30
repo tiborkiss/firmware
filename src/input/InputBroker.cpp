@@ -439,7 +439,7 @@ void InputBroker::Init()
             delete quadratureEncoder;
             quadratureEncoder = nullptr;
         }
-#else
+#elif !defined(WIO_ST7789_LCD_BENCH)
         rotaryEncoderInterruptImpl1 = new RotaryEncoderInterruptImpl1();
         if (!rotaryEncoderInterruptImpl1->init()) {
             delete rotaryEncoderInterruptImpl1;

@@ -109,7 +109,11 @@ class Screen
 #elif defined(USE_SSD1306)
 #include <SSD1306Wire.h>
 #elif defined(USE_ST7789)
+#ifdef WIO_ST7789_LCD_BENCH
+#include <NhdST7789Spi.h>
+#else
 #include <ST7789Spi.h>
+#endif
 #elif defined(USE_SPISSD1306)
 #include <SSD1306Spi.h>
 #elif defined(USE_ST7796)
