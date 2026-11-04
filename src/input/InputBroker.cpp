@@ -439,7 +439,7 @@ void InputBroker::Init()
             delete quadratureEncoder;
             quadratureEncoder = nullptr;
         }
-#elif !defined(WIO_ST7789_LCD_BENCH)
+#elif !defined(WIO_NO_ROTARY)
         rotaryEncoderInterruptImpl1 = new RotaryEncoderInterruptImpl1();
         if (!rotaryEncoderInterruptImpl1->init()) {
             delete rotaryEncoderInterruptImpl1;
@@ -468,6 +468,15 @@ void InputBroker::Init()
 #endif // INPUTBROKER_MATRIX_TYPE
     }
 #endif // HAS_BUTTON
+#if defined(WIO_CUSTOM_ROTARY) && !HAS_BUTTON && !MESHTASTIC_EXCLUDE_INPUTBROKER
+    if (config.display.displaymode != meshtastic_Config_DisplayConfig_DisplayMode_COLOR) {
+        rotaryEncoderInterruptImpl1 = new RotaryEncoderInterruptImpl1();
+        if (!rotaryEncoderInterruptImpl1->init()) {
+            delete rotaryEncoderInterruptImpl1;
+            rotaryEncoderInterruptImpl1 = nullptr;
+        }
+    }
+#endif
 #if ARCH_PORTDUINO
     if (config.display.displaymode != meshtastic_Config_DisplayConfig_DisplayMode_COLOR) {
         if (portduino_config.i2cdev != "") {

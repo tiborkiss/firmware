@@ -131,7 +131,7 @@
  */
 void setupModules()
 {
-#if (HAS_BUTTON || ARCH_PORTDUINO) && !MESHTASTIC_EXCLUDE_INPUTBROKER
+#if (HAS_BUTTON || ARCH_PORTDUINO || defined(WIO_CUSTOM_ROTARY)) && !MESHTASTIC_EXCLUDE_INPUTBROKER
     if (config.display.displaymode != meshtastic_Config_DisplayConfig_DisplayMode_COLOR) {
         inputBroker = new InputBroker();
         systemCommandsModule = new SystemCommandsModule();
