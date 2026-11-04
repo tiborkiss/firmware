@@ -86,7 +86,21 @@ extern "C" {
 #define WIO_LCD_X_OFFSET 0
 #define WIO_LCD_Y_OFFSET 0
 #define WIO_LCD_MADCTL 0xC8
-// VDD and backlight are always powered; do not define VTFT_CTRL or VTFT_LEDA.
+// Custom board: Q5 (BSS84) high-side switch, gate = pwr_lcd_n on P0.15, active low
+// (100k pull-up R4 keeps it off at boot). Dev bench: P0.15 is the disconnected
+// rotary-press pin; driving it low there is inert.
+#ifdef WIO_LCD_PWR_GATE
+#if !defined(WIO_ST7789_LCD_BENCH) || !defined(USE_ST7789)
+#error WIO_LCD_PWR_GATE needs the ST7789 bench pin definitions
+#endif
+// Full gating (R20 fitted, R21 removed, R19 fitted, R17 NC): Q5 switches both the
+// backlight and the LCD controller supply; VTFT_CTRL paths manage the rail.
+#define VTFT_CTRL (0 + 15)
+#else
+// Backlight-only assembly (R19 fitted; R21 keeps controller VDD always on).
+// Do not define VTFT_LEDA; there is no separate backlight GPIO in either build.
+#define WIO_LCD_BL_PIN (0 + 15)
+#endif
 #else
 #define SPI_INTERFACES_COUNT 1
 #endif

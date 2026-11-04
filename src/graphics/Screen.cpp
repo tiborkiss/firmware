@@ -559,6 +559,10 @@ Screen::Screen(ScanI2C::DeviceAddress address, meshtastic_Config_DisplayConfig_O
 #elif defined(USE_ST7789)
 #ifdef WIO_ST7789_LCD_BENCH
     pinMode(ST7789_TE, INPUT); // Panel output; no pull-up or interrupt.
+#ifdef WIO_LCD_BL_PIN
+    pinMode(WIO_LCD_BL_PIN, OUTPUT);
+    digitalWrite(WIO_LCD_BL_PIN, LOW); // Backlight on: Q5 gate is active-low on the custom board.
+#endif
     dispdev = new ST7789Spi(&SPI1, ST7789_RESET, ST7789_RS, ST7789_NSS, GEOMETRY_RAWMODE, TFT_WIDTH, TFT_HEIGHT, WIO_LCD_SPI_HZ,
                             WIO_LCD_X_OFFSET, WIO_LCD_Y_OFFSET, WIO_LCD_MADCTL);
 #elif defined(ESP_PLATFORM)
@@ -680,6 +684,9 @@ void Screen::doDeepSleep()
 
 void Screen::handleSetOn(bool on, FrameCallback einkScreensaver)
 {
+#if defined(USE_ST7789) && defined(WIO_LCD_PWR_GATE)
+    static bool panelRailOff = false; // set when the sleep path cut the panel rail
+#endif
     if (!useDisplay)
         return;
 
@@ -708,6 +715,23 @@ void Screen::handleSetOn(bool on, FrameCallback einkScreensaver)
             // Ensure panel power rail is enabled before sending wake commands.
             pinMode(VTFT_CTRL, OUTPUT);
             digitalWrite(VTFT_CTRL, LOW);
+#endif
+#if defined(USE_ST7789) && defined(WIO_LCD_PWR_GATE)
+            // Panel may have been fully unpowered: re-run connect+init
+            // (SPI begin, hardware reset, init commands) before drawing.
+            if (panelRailOff) {
+                // Park control pins LOW first so nothing feeds the
+                // still-rising rail through the panel's ESD diodes.
+                pinMode(ST7789_RESET, OUTPUT);
+                digitalWrite(ST7789_RESET, LOW);
+                pinMode(ST7789_RS, OUTPUT);
+                digitalWrite(ST7789_RS, LOW);
+                pinMode(ST7789_NSS, OUTPUT);
+                digitalWrite(ST7789_NSS, LOW);
+                delay(10);       // rail rise before reset release
+                dispdev->init(); // full re-init after power loss
+                panelRailOff = false;
+            }
 #endif
             dispdev->displayOn();
 #endif
@@ -781,7 +805,23 @@ void Screen::handleSetOn(bool on, FrameCallback einkScreensaver)
 #ifdef SCREEN_12V_ENABLE
             digitalWrite(SCREEN_12V_ENABLE, LOW);
 #endif
-#if defined(USE_ST7789) && !defined(WIO_ST7789_LCD_BENCH)
+#if defined(USE_ST7789) && defined(WIO_LCD_PWR_GATE)
+            SPI1.end();
+#ifdef VTFT_CTRL
+            pinMode(VTFT_CTRL, OUTPUT);
+            digitalWrite(VTFT_CTRL, HIGH); // Q5 off: panel rails down
+#endif
+            // Rail is off: park LOW so no pin sources current into the unpowered
+            // panel through its ESD diodes; RST low also holds a still-powered
+            // controller (interim R21 population) in reset.
+            pinMode(ST7789_RESET, OUTPUT);
+            digitalWrite(ST7789_RESET, LOW);
+            pinMode(ST7789_RS, OUTPUT);
+            digitalWrite(ST7789_RS, LOW);
+            pinMode(ST7789_NSS, OUTPUT);
+            digitalWrite(ST7789_NSS, LOW);
+            panelRailOff = true;
+#elif defined(USE_ST7789) && !defined(WIO_ST7789_LCD_BENCH)
             SPI1.end();
             // Keep TFT control pins in deterministic states while timed-off.
             // Floating/default pin states can corrupt panel edge rows on wake.
