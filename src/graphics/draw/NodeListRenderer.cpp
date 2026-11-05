@@ -405,8 +405,9 @@ static int noFixCoordReserve = 0;
 
 static int buildCoordString(const meshtastic_PositionLite &pos, char *buf, size_t bufSize)
 {
-    const int32_t latAbs = pos.latitude_i < 0 ? -pos.latitude_i : pos.latitude_i;
-    const int32_t lonAbs = pos.longitude_i < 0 ? -pos.longitude_i : pos.longitude_i;
+    // Magnitudes in int64_t: negating INT32_MIN in int32_t would overflow.
+    const int64_t latAbs = pos.latitude_i < 0 ? -(int64_t)pos.latitude_i : pos.latitude_i;
+    const int64_t lonAbs = pos.longitude_i < 0 ? -(int64_t)pos.longitude_i : pos.longitude_i;
     return snprintf(buf, bufSize, "%.4f%c %.4f%c", latAbs * 1e-7, pos.latitude_i >= 0 ? 'N' : 'S', lonAbs * 1e-7,
                     pos.longitude_i >= 0 ? 'E' : 'W');
 }
@@ -503,6 +504,9 @@ void drawNodeDistance(OLEDDisplay *display, meshtastic_NodeInfoLite *node, int16
     const char *distanceLabel;
     if (strlen(distStr) > 0) {
         distanceLabel = distStr;
+    } else if (graphics::isCompactPanel(display)) {
+        // The coordinate pair cannot fit a compact row; keep the placeholder.
+        distanceLabel = "?";
     } else {
         // No fix of our own: no distance is computable. Fall back to the
         // node's coordinates so a GPS-less device still gets useful text.
@@ -740,7 +744,7 @@ void drawNodeListScreen(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t
     noFixCoordReserve = 0;
     if (locationScreen) {
         const meshtastic_NodeInfoLite *ourNode = nodeDB->getMeshNode(nodeDB->getNodeNum());
-        if (!nodeDB->hasValidPosition(ourNode)) {
+        if (!nodeDB->hasValidPosition(ourNode) && !graphics::isCompactPanel(display)) {
             char sample[24];
             snprintf(sample, sizeof(sample), "88.8888S 179.9999W");
             display->setFont(FONT_SMALL);
