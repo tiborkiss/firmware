@@ -407,7 +407,7 @@ static int buildCoordString(const meshtastic_PositionLite &pos, char *buf, size_
 {
     const int32_t latAbs = pos.latitude_i < 0 ? -pos.latitude_i : pos.latitude_i;
     const int32_t lonAbs = pos.longitude_i < 0 ? -pos.longitude_i : pos.longitude_i;
-    return snprintf(buf, bufSize, "%.5f%c %.5f%c", latAbs * 1e-7, pos.latitude_i >= 0 ? 'N' : 'S', lonAbs * 1e-7,
+    return snprintf(buf, bufSize, "%.4f%c %.4f%c", latAbs * 1e-7, pos.latitude_i >= 0 ? 'N' : 'S', lonAbs * 1e-7,
                     pos.longitude_i >= 0 ? 'E' : 'W');
 }
 
@@ -510,9 +510,16 @@ void drawNodeDistance(OLEDDisplay *display, meshtastic_NodeInfoLite *node, int16
         const bool haveNodePos = nodeDB->hasValidPosition(node) && nodeDB->copyNodePosition(node->num, nodePos);
         distanceLabel = (haveNodePos && buildCoordString(nodePos, coordStr, sizeof(coordStr)) > 0) ? coordStr : "?";
     }
-    int offset = (currentResolution == ScreenResolution::High)
+    int offset;
+    if (noFixCoordReserve > 0) {
+        // Coordinate fallback: right-align to the same margin as drawCompassUnknown
+        // so the two cycling views do not shift the text.
+        offset = 2;
+    } else {
+        offset = (currentResolution == ScreenResolution::High)
                      ? (isLeftCol ? 7 : 10) // Offset for Wide Screens (Left Column:Right Column)
                      : (isLeftCol ? 4 : 7); // Offset for Narrow Screens (Left Column:Right Column)
+    }
     int rightEdge = x + columnWidth - offset;
     int textWidth = display->getStringWidth(distanceLabel);
     display->drawString(rightEdge - textWidth, y, distanceLabel);
@@ -728,14 +735,14 @@ void drawNodeListScreen(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t
 
     int columnWidth = display->getWidth() / totalColumns;
 
-    // Size the coordinate reserve for the widest possible coordinate string,
-    // leaving the name at least a short stub so it stays readable.
+    // Size the coordinate reserve from a realistic worst-case coordinate
+    // string at the current font, leaving the name at least a short stub.
     noFixCoordReserve = 0;
     if (locationScreen) {
         const meshtastic_NodeInfoLite *ourNode = nodeDB->getMeshNode(nodeDB->getNodeNum());
         if (!nodeDB->hasValidPosition(ourNode)) {
             char sample[24];
-            snprintf(sample, sizeof(sample), "-88.88888W -188.88888W");
+            snprintf(sample, sizeof(sample), "88.8888S 179.9999W");
             display->setFont(FONT_SMALL);
             noFixCoordReserve = std::min(display->getStringWidth(sample) + 4, columnWidth - 44);
         }
