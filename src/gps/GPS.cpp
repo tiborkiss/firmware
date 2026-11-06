@@ -1243,6 +1243,38 @@ GPS::~GPS()
     notifyDeepSleepObserver.unobserve(&notifyDeepSleep);
 }
 
+#ifdef WIO_LC76G_RESET_PIN
+void GPS::lc76gPulseReset()
+{
+    digitalWrite(WIO_LC76G_RESET_PIN, LOW);
+    pinMode(WIO_LC76G_RESET_PIN, OUTPUT);
+    delay(120);
+    pinMode(WIO_LC76G_RESET_PIN, INPUT);
+}
+
+bool GPS::lc76gEnterBackup()
+{
+    if (!didSerialInit) {
+        LOG_WARN("LC76G backup skipped: GPS serial not initialized");
+        return false;
+    }
+    clearBuffer();
+    _serial_gps->write("$PAIR650,0*25\r\n");
+    _serial_gps->flush();
+    if (getACK("$PAIR001,650,0*38", 1500) != GNSS_RESPONSE_OK) {
+        LOG_WARN("LC76G backup not acknowledged; keeping VCC on and resetting receiver");
+        lc76gPulseReset();
+        return false;
+    }
+    delay(50);
+    _serial_gps->end();
+    pinMode(tx_gpio, INPUT);
+    pinMode(rx_gpio, INPUT);
+    LOG_INFO("LC76G backup acknowledged; switching VCC off");
+    return true;
+}
+#endif
+
 // Put the GPS hardware into a specified state
 void GPS::setPowerState(GPSPowerState newState, uint32_t sleepTime)
 {
@@ -1272,6 +1304,17 @@ void GPS::setPowerState(GPSPowerState newState, uint32_t sleepTime)
 #endif
         powerMon->setState(meshtastic_PowerMon_State_GPS_Active); // Report change for power monitoring (during testing)
         writePinEN(true);                                         // Power (EN pin): on
+#ifdef WIO_LC76G_RESET_PIN
+        delay(100);
+        lc76gPulseReset();
+        delay(200);
+        if (lc76gRailOff) {
+            _serial_gps->setPins(rx_gpio, tx_gpio);
+            _serial_gps->begin(detectedBaud);
+            lc76gRailOff = false;
+        }
+        LOG_INFO("LC76G VCC on; reset released, UART available");
+#endif
 #ifdef HAS_AIROHA_SOFT_RTC
         if (IS_ONE_OF(gnssModel, GNSS_MODEL_AG3335, GNSS_MODEL_AG3352))
             airohaPulseRtcInt(); // Airoha: leave software-RTC sleep, now that VCC is back
@@ -1296,6 +1339,13 @@ void GPS::setPowerState(GPSPowerState newState, uint32_t sleepTime)
         break;
 
     case GPS_HARDSLEEP:
+#ifdef WIO_LC76G_RESET_PIN
+        if (!lc76gRailOff && !lc76gEnterBackup()) {
+            powerState = GPS_IDLE;
+            break;
+        }
+        lc76gRailOff = true;
+#endif
         powerMon->clearState(meshtastic_PowerMon_State_GPS_Active); // Report change for power monitoring (during testing)
 #ifdef HAS_AIROHA_SLEEP
         if (oldState != GPS_HARDSLEEP && oldState != GPS_OFF)
@@ -1309,7 +1359,14 @@ void GPS::setPowerState(GPSPowerState newState, uint32_t sleepTime)
         break;
 
     case GPS_OFF:
-        assert(sleepTime == 0);                                     // This is an indefinite sleep
+        assert(sleepTime == 0); // This is an indefinite sleep
+#ifdef WIO_LC76G_RESET_PIN
+        if (!lc76gRailOff && !lc76gEnterBackup()) {
+            powerState = GPS_IDLE;
+            break;
+        }
+        lc76gRailOff = true;
+#endif
         powerMon->clearState(meshtastic_PowerMon_State_GPS_Active); // Report change for power monitoring (during testing)
 #ifdef HAS_AIROHA_SLEEP
         if (oldState != GPS_HARDSLEEP && oldState != GPS_OFF)

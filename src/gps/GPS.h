@@ -236,6 +236,11 @@ class GPS : private concurrency::OSThread
     bool GPSInitStarted = false;  // Init thread finished?
 
     GPSPowerState powerState = GPS_OFF; // GPS_ACTIVE if we want a location right now
+#ifdef WIO_LC76G_RESET_PIN
+    bool lc76gRailOff = false;
+    bool lc76gEnterBackup();
+    void lc76gPulseReset();
+#endif
 #ifdef HAS_AIROHA_SLEEP
     uint8_t airohaSleepMisses = 0; // consecutive sleep commands that went unacked
 #endif

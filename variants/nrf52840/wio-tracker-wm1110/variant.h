@@ -137,6 +137,12 @@ extern "C" {
 #define GPS_RX_PIN PIN_SERIAL1_RX
 #define GPS_TX_PIN PIN_SERIAL1_TX
 
+#ifdef WIO_CUSTOM_ROTARY
+#define PIN_GPS_EN (32 + 8) // P1.08, active-low GNSS power switch
+#define GPS_EN_ACTIVE 0
+#define WIO_LC76G_RESET_PIN (0 + 30)
+#endif
+
 #define HAS_GPS 1
 
 #ifdef __cplusplus
