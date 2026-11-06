@@ -70,6 +70,10 @@ class AccelerometerThread : public concurrency::OSThread
     // disable() the thread in this case, or the compass would freeze until the next reboot.
     bool providesHeading() const { return isInitialised && sensor && sensor->providesHeading(); }
 
+    // True when a sensor was detected AND initialised: a healthy motion provider. Consumers
+    // gating other subsystems on motion (e.g. GPS scheduling) must no-op when this is false.
+    bool present() const { return isInitialised; }
+
   protected:
     int32_t runOnce() override
     {

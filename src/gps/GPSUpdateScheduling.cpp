@@ -38,8 +38,11 @@ void GPSUpdateScheduling::informSearching()
 
 void GPSUpdateScheduling::informValidFix()
 {
-    if (searching)
+    if (searching) {
         validFixReceived = true;
+        lastValidFixMs = Time::getMillis();
+        validFixEverSeen = true;
+    }
 }
 
 // Mark the time when searching for GPS is complete,
@@ -77,6 +80,44 @@ void GPSUpdateScheduling::reset()
     searchCount = 0;
     predictedMsToGetLock = 0;
     consecutiveFailures = 0;
+    // lastValidFixMs deliberately survives: it is observed history (first-fix rule,
+    // motion-gate freshness), not a prediction the re-enabled cycle would recompute.
+}
+
+uint32_t GPSUpdateScheduling::secondsSinceValidFix()
+{
+    if (!validFixEverSeen)
+        return UINT32_MAX;
+    return (Time::getMillis() - lastValidFixMs) / 1000;
+}
+
+// Pure motion gate. Ordering matters and is deliberate:
+//  - disabled or no fix since boot: stock cadence passes through untouched (first-fix rule).
+//  - moving: an early search is forced only when the retained fix is older than the quiet
+//    window (a fix from before the motion burst started) AND the last search did not fail -
+//    with failures pending, the stock backoff cadence stays in charge so indoor motion
+//    cannot retrigger doomed searches. Otherwise the periodic cadence governs, so
+//    continuous motion does not cause back-to-back searches.
+//  - quiet and the fix is still fresh: postpone to at least the recheck floor. The GPS
+//    thread polls far more often than that floor, so this simply keeps the search
+//    suppressed while conditions hold; never returning 0 keeps the wake decision false.
+//  - quiet but the fix has aged past maxFixAgeSecs: fall through to stock so a refresh
+//    search happens despite the quiet (the honesty bound).
+uint32_t applyMotionGate(uint32_t remainingMs, const MotionGateInputs &in)
+{
+    if (!in.enabled || !in.hasFixSinceBoot)
+        return remainingMs;
+
+    if (in.secondsSinceMotion < in.quietSecs) {
+        if (in.consecutiveSearchFailures == 0 && in.secondsSinceValidFix >= in.quietSecs)
+            return 0;
+        return remainingMs;
+    }
+
+    if (in.secondsSinceValidFix <= in.maxFixAgeSecs)
+        return remainingMs > kMotionRecheckMs ? remainingMs : kMotionRecheckMs;
+
+    return remainingMs;
 }
 
 // How many milliseconds before we should next search for GPS position

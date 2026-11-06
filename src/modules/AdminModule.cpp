@@ -842,16 +842,22 @@ void AdminModule::handleSetOwner(const meshtastic_User &o)
 // Shared by double-tap-as-button (device) and wake-on-motion (display). Start on either flag's
 // off->on edge; stop on the on->off edge once neither needs it (disable() clears `enabled` so a
 // later re-enable restarts). Skip the stop if the sensor also drives the compass, else the heading
-// freezes until reboot. wasOn/nowOn = old/new of the changed flag; otherFeatureOn = the other flag.
+// freezes until reboot, or while motion-gated GPS still consumes the motion stamp. wasOn/nowOn =
+// old/new of the changed flag; otherFeatureOn = the other flag.
 static void reconcileAccelerometerThread(bool wasOn, bool nowOn, bool otherFeatureOn)
 {
     if (!accelerometerThread) // null unless a sensor was detected at boot
         return;
+#if defined(USERPREFS_GPS_ON_MOTION) && USERPREFS_GPS_ON_MOTION
+    const bool motionGpsNeedsThread = true; // GPS wake gating reads MotionSensor::secondsSinceMotion()
+#else
+    const bool motionGpsNeedsThread = false;
+#endif
 
     if (!wasOn && nowOn && accelerometerThread->enabled == false) {
         accelerometerThread->enabled = true;
         accelerometerThread->start();
-    } else if (wasOn && !nowOn && !otherFeatureOn && accelerometerThread->enabled == true &&
+    } else if (wasOn && !nowOn && !otherFeatureOn && !motionGpsNeedsThread && accelerometerThread->enabled == true &&
                !accelerometerThread->providesHeading()) {
         accelerometerThread->disable();
     }

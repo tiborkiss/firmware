@@ -48,10 +48,29 @@ CompassAccelSample latestCompassAccelSample;
 
 concurrency::Lock latestCompassMagLock;
 CompassAccelSample latestCompassMagSample;
+
+concurrency::Lock lastMotionLock;
+uint32_t lastMotionMs = 0;
+bool motionEverSeen = false; // Flag, not a stamp!=0 test: a stamp can legally be 0 at the wrap
 } // namespace
 
 // screen is defined in main.cpp
 extern std::unique_ptr<graphics::Screen> screen;
+
+void MotionSensor::noteMotion()
+{
+    concurrency::LockGuard g(&lastMotionLock);
+    lastMotionMs = Time::stampMillis();
+    motionEverSeen = true;
+}
+
+uint32_t MotionSensor::secondsSinceMotion()
+{
+    concurrency::LockGuard g(&lastMotionLock);
+    if (!motionEverSeen)
+        return UINT32_MAX;
+    return (Time::stampMillis() - lastMotionMs) / 1000;
+}
 
 MotionSensor::MotionSensor(ScanI2C::FoundDevice foundDevice)
 {

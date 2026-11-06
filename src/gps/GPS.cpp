@@ -77,6 +77,42 @@ std::unique_ptr<GPS> gps = nullptr;
 
 static GPSUpdateScheduling scheduling;
 
+#if defined(USERPREFS_GPS_ON_MOTION) && USERPREFS_GPS_ON_MOTION && !MESHTASTIC_EXCLUDE_ACCELEROMETER
+#ifndef USERPREFS_GPS_MOTION_QUIET_SECS
+#define USERPREFS_GPS_MOTION_QUIET_SECS 300
+#endif
+#ifndef USERPREFS_GPS_MOTION_MAX_FIX_AGE_SECS
+#define USERPREFS_GPS_MOTION_MAX_FIX_AGE_SECS 900
+#endif
+// Single wake decision, gate included: fresh motion with a pre-motion fix forces an immediate
+// search; quiet with a fresh fix suppresses an otherwise-due stock wake. Falls back to the
+// stock poll when no healthy accelerometer exists (handheld build, sensor init failure).
+static bool motionGateWakeDue(GPSUpdateScheduling &sched)
+{
+    if (!accelerometerThread || !accelerometerThread->present())
+        return sched.isUpdateDue();
+    MotionGateInputs in;
+    in.enabled = true;
+    in.hasFixSinceBoot = sched.everValidFix();
+    in.secondsSinceValidFix = sched.secondsSinceValidFix();
+    in.secondsSinceMotion = MotionSensor::secondsSinceMotion();
+    in.consecutiveSearchFailures = sched.searchFailures();
+    in.quietSecs = USERPREFS_GPS_MOTION_QUIET_SECS;
+    in.maxFixAgeSecs = USERPREFS_GPS_MOTION_MAX_FIX_AGE_SECS;
+    const uint32_t effective = applyMotionGate(sched.msUntilNextSearch(), in);
+    if (effective == 0 && !sched.isUpdateDue())
+        LOG_DEBUG("GPS motion gate: motion wake (fix %us old)", in.secondsSinceValidFix);
+    else if (effective != 0 && sched.isUpdateDue())
+        LOG_DEBUG("GPS motion gate: postponing due search (quiet, fix %us old)", in.secondsSinceValidFix);
+    return effective == 0;
+}
+#else
+static bool motionGateWakeDue(GPSUpdateScheduling &sched)
+{
+    return sched.isUpdateDue();
+}
+#endif
+
 // A board can share one pin between an L76K standby and an Airoha RTC_INT (ThinkNode M5 v1.0/v2.0).
 #if defined(PIN_GPS_STANDBY) && defined(GPS_RTC_INT) && PIN_GPS_STANDBY == GPS_RTC_INT
 #define GPS_STANDBY_IS_RTC_INT 1
@@ -1742,7 +1778,7 @@ int32_t GPS::runOnce()
     }
 
     // If we're due for an update, wake the GPS
-    if (!config.position.fixed_position && powerState != GPS_ACTIVE && scheduling.isUpdateDue())
+    if (!config.position.fixed_position && powerState != GPS_ACTIVE && motionGateWakeDue(scheduling))
         up();
 
     // quality of the previous fix. We set it to 0 when we go down, so it's a way

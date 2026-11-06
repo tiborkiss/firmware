@@ -588,6 +588,7 @@ int32_t BMI270Sensor::runOnce()
     // Check for significant motion (~0.2g at 2g range)
     const int16_t threshold = 3200;
     if (deltaX > threshold || deltaY > threshold || deltaZ > threshold) {
+        noteMotion();
         wakeScreen();
         return 500;
     }

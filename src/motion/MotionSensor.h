@@ -44,6 +44,11 @@ class MotionSensor
 
     virtual void calibrate(uint16_t forSeconds) {};
 
+    // Last-motion stamp, published by drivers when their motion detection fires. Age is
+    // UINT32_MAX when no motion has been seen since boot (also the no-sensor case).
+    static void noteMotion();
+    static uint32_t secondsSinceMotion();
+
     // Latest samples published by the compass-fusion drivers (accel from the IMU, mag from the magnetometer).
     // Public so an optional on-screen sensor debug readout can read them. Return false if nothing published yet.
     static bool getLatestCompassAccelSample(float &x, float &y, float &z, uint32_t &ageMs);
