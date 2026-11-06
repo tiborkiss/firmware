@@ -3,7 +3,11 @@
 #if !defined(ARCH_STM32WL) && !MESHTASTIC_EXCLUDE_I2C && defined(HAS_BMI270)
 
 #include "detect/ScanI2CTwoWire.h"
+#ifdef ARCH_ESP32
 #include <pgmspace.h>
+#else
+#include <avr/pgmspace.h>
+#endif
 
 // BMI270 registers used
 #define BMI270_REG_ACC_X_LSB 0x0C

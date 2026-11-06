@@ -141,6 +141,10 @@ extern "C" {
 #define PIN_GPS_EN (32 + 8) // P1.08, active-low GNSS power switch
 #define GPS_EN_ACTIVE 0
 #define WIO_LC76G_RESET_PIN (0 + 30)
+// Custom tracker fit carries a BMI270 (handheld assembly has none); the I2C
+// scanner differentiates the two boards at runtime.
+#define HAS_BMI270
+#define PIN_BMI270_INT (0 + 4) // P1.04, BMI270 INT2 (any-motion routable)
 #endif
 
 #define HAS_GPS 1
