@@ -519,11 +519,6 @@ void setup()
     digitalWrite(BIAS_T_ENABLE, BIAS_T_VALUE); // turn on 5V for GPS Antenna
 #endif
 
-#if defined(VTFT_CTRL)
-    pinMode(VTFT_CTRL, OUTPUT);
-    digitalWrite(VTFT_CTRL, LOW);
-#endif
-
 #ifdef RESET_OLED
     pinMode(RESET_OLED, OUTPUT);
     digitalWrite(RESET_OLED, 1);
@@ -879,6 +874,16 @@ void setup()
     // Initialize transmit history to persist broadcast throttle timers across reboots
     TransmitHistory::getInstance()->loadFromDisk();
 #if HAS_TFT
+#if defined(VTFT_CTRL)
+    // Power TFT rails only when a display is wanted: sleepy trackers keep the panel
+    // completely unpowered (no init, no backlight; management is USB-only).
+    const bool displaySuppressed =
+        config.power.is_power_saving &&
+        IS_ONE_OF(config.device.role, meshtastic_Config_DeviceConfig_Role_TRACKER,
+                  meshtastic_Config_DeviceConfig_Role_TAK_TRACKER, meshtastic_Config_DeviceConfig_Role_SENSOR);
+    pinMode(VTFT_CTRL, OUTPUT);
+    digitalWrite(VTFT_CTRL, displaySuppressed);
+#endif
     if (config.display.displaymode == meshtastic_Config_DisplayConfig_DisplayMode_COLOR) {
         tftSetup();
     }

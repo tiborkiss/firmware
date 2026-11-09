@@ -674,6 +674,8 @@ Screen::~Screen()
  */
 void Screen::doDeepSleep()
 {
+    if (!useDisplay)
+        return; // never initialized: rails already gated off in main setup
 #ifdef USE_EINK
     setOn(false, graphics::UIRenderer::drawDeepSleepFrame);
 #else
@@ -865,8 +867,19 @@ void Screen::handleSetOn(bool on, FrameCallback einkScreensaver)
     }
 }
 
+static bool sleepyTrackerDisplaySuppressed()
+{
+    // TRACKER/SENSOR + power saving: the display is never initialized or powered;
+    // the device is managed over USB only.
+    return config.power.is_power_saving &&
+           IS_ONE_OF(config.device.role, meshtastic_Config_DeviceConfig_Role_TRACKER,
+                     meshtastic_Config_DeviceConfig_Role_TAK_TRACKER, meshtastic_Config_DeviceConfig_Role_SENSOR);
+}
+
 void Screen::setup()
 {
+    if (sleepyTrackerDisplaySuppressed())
+        return; // keep the panel completely unpowered (rails are gated off in main setup)
 
     // Enable display rendering
     useDisplay = true;
