@@ -100,10 +100,12 @@ static bool motionGateWakeDue(GPSUpdateScheduling &sched)
     in.quietSecs = USERPREFS_GPS_MOTION_QUIET_SECS;
     in.maxFixAgeSecs = USERPREFS_GPS_MOTION_MAX_FIX_AGE_SECS;
     const uint32_t effective = applyMotionGate(sched.msUntilNextSearch(), in);
+    // INFO, not DEBUG: these two lines are the observable signature of the gate (the stock
+    // schedule only logs at down()), e.g. for bench validation over serial.
     if (effective == 0 && !sched.isUpdateDue())
-        LOG_DEBUG("GPS motion gate: motion wake (fix %us old)", in.secondsSinceValidFix);
+        LOG_INFO("GPS motion gate: motion wake (fix %us old)", in.secondsSinceValidFix);
     else if (effective != 0 && sched.isUpdateDue())
-        LOG_DEBUG("GPS motion gate: postponing due search (quiet, fix %us old)", in.secondsSinceValidFix);
+        LOG_INFO("GPS motion gate: postponing due search (quiet, fix %us old)", in.secondsSinceValidFix);
     return effective == 0;
 }
 #else
