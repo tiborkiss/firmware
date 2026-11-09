@@ -10,7 +10,6 @@
 #include "error.h"
 #include "main.h"
 #include "mesh-pb-constants.h"
-#include "sleep.h"
 #include <pb_decode.h>
 #include <pb_encode.h>
 
@@ -45,7 +44,7 @@ RadioLibInterface::RadioLibInterface(LockingArduinoHal *hal, RADIOLIB_PIN_TYPE c
     : NotifiedWorkerThread("RadioIf"), module(hal, cs, irq, rst, busy), iface(_iface)
 {
     instance = this;
-    deepSleepObserver.observe(&notifyDeepSleep);
+
 #ifdef MESHTASTIC_RX_READOUT_TASK
     // Before any sequence can start, not with the task in startReceive(): the first RadioSequence to wrap that call
     // would otherwise have taken nothing (the mutex was still null), leaving it with held == false while the task it
@@ -64,15 +63,6 @@ RadioLibInterface::RadioLibInterface(LockingArduinoHal *hal, RADIOLIB_PIN_TYPE c
     module.setCb_digitalWrite(stm32wl_emulate_digitalWrite);
     module.setCb_digitalRead(stm32wl_emulate_digitalRead);
 #endif
-}
-
-int RadioLibInterface::prepareRadioSleep(void *unused)
-{
-    if (!iface)
-        return 0;
-    LOG_INFO("Radio entering sleep");
-    iface->sleep();
-    return 0;
 }
 
 uint32_t RadioLibInterface::tcxoStartupDelayUs()
