@@ -95,6 +95,12 @@ class RadioLibInterface : public RadioInterface, protected concurrency::Notified
     MeshPacketQueue txQueue = MeshPacketQueue(MAX_TX_QUEUE);
 
   protected:
+    // Puts the radio chip into its own sleep mode during CPU deep sleep; without this the chip
+    // stays in standby/RX (mA) for the whole sleep period (e.g. sleepy tracker between sends).
+    CallbackObserver<RadioLibInterface, void *> deepSleepObserver =
+        CallbackObserver<RadioLibInterface, void *>(this, &RadioLibInterface::prepareRadioSleep);
+    int prepareRadioSleep(void *unused);
+
     /// Used as our notification from the ISR
     enum PendingISR { ISR_NONE = 0, ISR_RX, ISR_TX, TRANSMIT_DELAY_COMPLETED, ISR_POLL_TICK };
 
