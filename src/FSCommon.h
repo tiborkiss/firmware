@@ -57,6 +57,11 @@ size_t fsUsedBytes();
 void fsInit();
 bool renameFile(const char *pathFrom, const char *pathTo);
 bool fsFormat();
+// True if a file can still be created, written, read and deleted at the root. A successful mount does not
+// prove it (littlefs can mount with an erased root pair); caller must hold spiLock.
+bool fsRootUsable();
+// Weak: called by fsInit() when the probe fails. Platforms with a boot-time format path override it.
+void fsSelfHeal();
 std::vector<meshtastic_FileInfo> getFiles(const char *dirname, uint8_t levels, size_t maxCount = 64, bool *wasLimited = nullptr);
 void listDir(const char *dirname, uint8_t levels, bool del = false);
 void rmDir(const char *dirname);

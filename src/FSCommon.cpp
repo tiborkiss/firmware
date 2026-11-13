@@ -11,6 +11,7 @@
 #include "FSCommon.h"
 #include "SPILock.h"
 #include "configuration.h"
+#include "error.h"
 
 #if defined(ARCH_PORTDUINO)
 #include <filesystem>
@@ -397,6 +398,51 @@ void rmDir(const char *dirname)
 }
 
 /**
+ * Create, write, read back and delete a probe file at the filesystem root. lfs_mount() (and the
+ * host/portduino backends) accept a partition whose root metadata is damaged, so a successful mount
+ * does not prove anything can be stored. Caller must hold spiLock.
+ */
+bool fsRootUsable()
+{
+#ifdef FSCom
+    static const char *probePath = "/.fsprobe";
+    // FILE_O_WRITE appends on some backends, so the name must be free before we open it.
+    if (FSCom.exists(probePath)) {
+        if (!FSCom.remove(probePath) && FSCom.exists(probePath))
+            return false;
+    }
+    File probe = FSCom.open(probePath, FILE_O_WRITE);
+    if (!probe)
+        return false;
+    bool ok = (probe.write((uint8_t)'x') == 1);
+    probe.close();
+    if (ok) {
+        File readback = FSCom.open(probePath, FILE_O_READ);
+        ok = !!readback && readback.read() == 'x';
+        readback.close();
+    }
+    FSCom.remove(probePath); // leftovers are cleared by the next probe
+    return ok;
+#else
+    return true;
+#endif
+}
+
+/**
+ * Default recovery after fsRootUsable() fails: format in place and remount. Platforms whose format
+ * only runs at boot (nRF52) override this to route through that path instead.
+ */
+__attribute__((weak, noinline)) void fsSelfHeal()
+{
+    RECORD_CRITICALERROR(meshtastic_CriticalErrorCode_FLASH_CORRUPTION_UNRECOVERABLE);
+    if (fsFormat() && FSBegin() && fsRootUsable()) {
+        LOG_INFO("Filesystem reformatted after failed root probe");
+        return;
+    }
+    LOG_ERROR("Filesystem unusable after format; settings will not persist");
+}
+
+/**
  * Some platforms (nrf52) might need to do an extra step before FSBegin().
  */
 __attribute__((weak, noinline)) void preFSBegin() {}
@@ -409,6 +455,11 @@ void fsInit()
     if (!FSBegin()) {
         LOG_ERROR("Filesystem mount failed");
         // assert(0); This auto-formats the partition, so no need to fail here.
+    }
+    // A mount can succeed on a partition whose root is unusable; then every save silently fails forever.
+    if (!fsRootUsable()) {
+        LOG_ERROR("Filesystem mounted but root is not writable");
+        fsSelfHeal();
     }
 #if defined(ARCH_ESP32)
     LOG_DEBUG("Filesystem files (%d/%d Bytes):", FSCom.usedBytes(), FSCom.totalBytes());

@@ -19,6 +19,7 @@
 #include <nrfx_wdt.h>
 #include <stdio.h>
 // #include <Adafruit_USBD_Device.h>
+#include "FSCommon.h"
 #include "HardwareRNG.h"
 #include "NodeDB.h"
 #include "Power.h"
@@ -313,6 +314,26 @@ void preFSBegin()
     formatted_this_boot = true;
     InternalFS.format();
     LOG_INFO("LittleFS format complete; restoring default settings");
+}
+
+// The probe in fsInit() runs after preFSBegin(), so formatted_this_boot means an already-formatted
+// partition still fails: run without persistence instead of reboot-looping.
+void fsSelfHeal()
+{
+    if (formatted_this_boot) {
+        RECORD_CRITICALERROR(meshtastic_CriticalErrorCode_FLASH_CORRUPTION_UNRECOVERABLE);
+        return;
+    }
+    // Same recovery as lfs_assert(): warm reboot with the format magic, skipping it on brownout.
+    LOG_WARN("LittleFS root probe failed; rebooting to format");
+    delay(500);
+    if (!NRF_POWER->EVENTS_POFWARN) {
+        if (!(sd_power_gpregret_clr(0, 0xFF) == NRF_SUCCESS &&
+              sd_power_gpregret_set(0, NRF52_MAGIC_LFS_IS_CORRUPT) == NRF_SUCCESS)) {
+            NRF_POWER->GPREGRET = NRF52_MAGIC_LFS_IS_CORRUPT;
+        }
+    }
+    NVIC_SystemReset();
 }
 
 extern "C" void lfs_assert(const char *reason)
